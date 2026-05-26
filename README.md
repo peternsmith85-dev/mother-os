@@ -11,7 +11,7 @@ Pete's personal command centre. One screen, one tone of voice, nothing slipping.
 Once pushed to GitHub, open instantly with:
 
 ```
-https://stackblitz.com/github/YOUR_GITHUB_USERNAME/mother-os
+https://stackblitz.com/github/peternsmith85-dev/mother-os
 ```
 
 StackBlitz will auto-install dependencies and run `pnpm dev`.
@@ -23,7 +23,7 @@ Add your `ANTHROPIC_API_KEY` in the StackBlitz environment variables panel (left
 ## Local setup
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/mother-os
+git clone https://github.com/peternsmith85-dev/mother-os
 cd mother-os
 pnpm install
 cp .env.example .env
