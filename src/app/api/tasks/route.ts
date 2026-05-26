@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import prisma from '@/lib/db'
+import type { InValue } from '@libsql/client'
+import { db, ensureSchema, newId } from '@/lib/db'
 import { serialiseTask } from '@/lib/utils'
 
 const CreateTaskSchema = z.object({
@@ -18,64 +19,86 @@ const CreateTaskSchema = z.object({
   tags: z.array(z.string()).default([]),
   proposed: z.boolean().default(false),
   parentId: z.string().optional().nullable(),
-  sortOrder: z.number().int().default(0),
+  sortOrder: z.number().int().optional(),
 })
 
-// GET /api/tasks — list all non-discarded tasks
+// GET /api/tasks
 export async function GET(request: NextRequest) {
   try {
+    await ensureSchema()
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get('status')
     const proposedFilter = searchParams.get('proposed')
 
-    const where: Record<string, unknown> = {}
+    let sql = 'SELECT * FROM Task WHERE 1=1'
+    const args: InValue[] = []
+
     if (statusFilter) {
-      where.status = statusFilter
+      sql += ' AND status = ?'
+      args.push(statusFilter)
     } else {
-      // Default: exclude discarded
-      where.status = { not: 'DISCARDED' }
+      sql += " AND status != 'DISCARDED'"
     }
+
     if (proposedFilter !== null) {
-      where.proposed = proposedFilter === 'true'
+      sql += ' AND proposed = ?'
+      args.push(proposedFilter === 'true' ? 1 : 0)
     }
 
-    const rows = await prisma.task.findMany({
-      where,
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    })
+    sql += ' ORDER BY sortOrder ASC, createdAt ASC'
 
-    return NextResponse.json({ data: rows.map(serialiseTask) })
+    const result = await db.execute({ sql, args })
+    const tasks = result.rows.map((r) => serialiseTask(r as Record<string, unknown>))
+    return NextResponse.json({ data: tasks })
   } catch (error) {
     console.error('[tasks GET]', error)
-    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 })
+    return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 }
 
-// POST /api/tasks — create a task
+// POST /api/tasks
 export async function POST(request: NextRequest) {
   try {
+    await ensureSchema()
     const body = await request.json()
     const parsed = CreateTaskSchema.parse(body)
 
     // Auto sortOrder = end of that column
-    const colCount = await prisma.task.count({
-      where: { status: parsed.status, proposed: parsed.proposed },
+    const countRes = await db.execute({
+      sql: 'SELECT COUNT(*) as cnt FROM Task WHERE status = ? AND proposed = ?',
+      args: [parsed.status, parsed.proposed ? 1 : 0],
+    })
+    const sortOrder = parsed.sortOrder ?? Number((countRes.rows[0] as Record<string, unknown>).cnt ?? 0)
+
+    const id = newId()
+    await db.execute({
+      sql: `INSERT INTO Task
+        (id, title, description, status, priority, due, source, sourceRef, tags, proposed, parentId, sortOrder)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        id,
+        parsed.title,
+        parsed.description ?? null,
+        parsed.status,
+        parsed.priority,
+        parsed.due ?? null,
+        parsed.source,
+        parsed.sourceRef ?? null,
+        JSON.stringify(parsed.tags),
+        parsed.proposed ? 1 : 0,
+        parsed.parentId ?? null,
+        sortOrder,
+      ],
     })
 
-    const task = await prisma.task.create({
-      data: {
-        ...parsed,
-        tags: JSON.stringify(parsed.tags),
-        sortOrder: parsed.sortOrder ?? colCount,
-      },
-    })
-
-    return NextResponse.json({ data: serialiseTask(task) }, { status: 201 })
+    const row = await db.execute({ sql: 'SELECT * FROM Task WHERE id = ?', args: [id] })
+    const task = serialiseTask(row.rows[0] as Record<string, unknown>)
+    return NextResponse.json({ data: task }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.flatten() }, { status: 422 })
     }
     console.error('[tasks POST]', error)
-    return NextResponse.json({ error: 'Failed to create task' }, { status: 500 })
+    return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 }

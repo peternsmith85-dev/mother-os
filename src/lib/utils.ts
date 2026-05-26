@@ -15,38 +15,30 @@ export function parseTags(tags: string): string[] {
   }
 }
 
-// Serialise task from DB row (strings to proper types)
-export function serialiseTask(raw: {
-  id: string
-  title: string
-  description: string | null
-  status: string
-  priority: string
-  due: Date | null
-  source: string
-  sourceRef: string | null
-  tags: string
-  proposed: boolean
-  parentId: string | null
-  blockedBy: string | null
-  blockedSince: Date | null
-  closedAt: Date | null
-  reflection: string | null
-  sortOrder: number
-  createdAt: Date
-  updatedAt: Date
-}): Task {
+// Serialise task from a raw libsql row (all values are strings/numbers/null)
+export function serialiseTask(raw: Record<string, unknown>): Task {
+  const str = (v: unknown): string | null =>
+    v === null || v === undefined ? null : String(v)
+
   return {
-    ...raw,
-    status: raw.status as TaskStatus,
-    priority: raw.priority as Task['priority'],
-    source: raw.source as Task['source'],
-    tags: parseTags(raw.tags),
-    due: raw.due?.toISOString() ?? null,
-    blockedSince: raw.blockedSince?.toISOString() ?? null,
-    closedAt: raw.closedAt?.toISOString() ?? null,
-    createdAt: raw.createdAt.toISOString(),
-    updatedAt: raw.updatedAt.toISOString(),
+    id: String(raw.id),
+    title: String(raw.title),
+    description: str(raw.description),
+    status: String(raw.status) as TaskStatus,
+    priority: String(raw.priority) as Task['priority'],
+    source: String(raw.source) as Task['source'],
+    sourceRef: str(raw.sourceRef),
+    tags: parseTags(String(raw.tags ?? '[]')),
+    proposed: raw.proposed === 1 || raw.proposed === true || raw.proposed === '1',
+    parentId: str(raw.parentId),
+    blockedBy: str(raw.blockedBy),
+    blockedSince: str(raw.blockedSince),
+    due: str(raw.due),
+    closedAt: str(raw.closedAt),
+    reflection: str(raw.reflection),
+    sortOrder: Number(raw.sortOrder ?? 0),
+    createdAt: String(raw.createdAt ?? new Date().toISOString()),
+    updatedAt: String(raw.updatedAt ?? new Date().toISOString()),
   }
 }
 

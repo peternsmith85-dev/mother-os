@@ -1,7 +1,8 @@
 {
   "installDependencies": false,
-  "startCommand": "pnpm install --no-frozen-lockfile && node scripts/init-db.mjs && pnpm dev",
+  "startCommand": "pnpm install --no-frozen-lockfile && pnpm dev",
   "env": {
-    "DATABASE_URL": "file:./data/mother.db"
+    "DATABASE_URL": ":memory:",
+    "STACKBLITZ": "true"
   }
 }

@@ -8,8 +8,8 @@ const nextConfig: NextConfig = {
       allowedOrigins: ['localhost:4789', '*.stackblitz.io', '*.webcontainer.io'],
     },
   },
-  // Suppress Prisma + libSQL from being bundled on the client
-  serverExternalPackages: ['@libsql/client', '@prisma/adapter-libsql', 'prisma'],
+  // Keep libsql server-side only (native/WASM module)
+  serverExternalPackages: ['@libsql/client'],
 }
 
 export default nextConfig
