@@ -1,0 +1,7 @@
+{
+  "installDependencies": true,
+  "startCommand": "node scripts/init-db.mjs && pnpm dev",
+  "env": {
+    "DATABASE_URL": "file:./data/mother.db"
+  }
+}

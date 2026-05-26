@@ -1,0 +1,140 @@
+// Mother OS — Prisma Schema
+// Using libSQL adapter for StackBlitz WebContainers compatibility
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+// TaskStatus mirrors the Kanban column names
+// Note: SQLite doesn't support native enums — stored as strings
+model Task {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  status       String    @default("THIS_WEEK") // TaskStatus
+  priority     String    @default("THIS_WEEK") // Priority
+  due          DateTime?
+  source       String    @default("MANUAL")    // Source
+  sourceRef    String?   // e.g. Gmail thread id
+  tags         String    @default("[]")        // JSON array
+  proposed     Boolean   @default(false)       // gate before board
+  parentId     String?
+  blockedBy    String?   // person waiting on
+  blockedSince DateTime?
+  closedAt     DateTime?
+  reflection   String?   // closing prompt answer
+  sortOrder    Int       @default(0)           // position within column
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  parent   Task?  @relation("Sub", fields: [parentId], references: [id])
+  children Task[] @relation("Sub")
+
+  @@index([status, proposed])
+  @@index([due])
+}
+
+model EmailThread {
+  id            String   @id // Gmail thread id
+  subject       String
+  fromEmail     String
+  lastMessageAt DateTime
+  summary       String?
+  taskIds       String   @default("[]") // JSON array
+  syncedAt      DateTime
+  createdAt     DateTime @default(now())
+}
+
+model Meeting {
+  id         String   @id @default(cuid())
+  title      String
+  occurredAt DateTime
+  attendees  String   @default("[]") // JSON array
+  filePath   String   // path to generated meeting log .md
+  taskIds    String   @default("[]") // JSON array
+  createdAt  DateTime @default(now())
+}
+
+model Brief {
+  id          String   @id @default(cuid())
+  generatedAt DateTime @default(now())
+  body        String   // markdown
+  stressScore Float    @default(0)
+  source      String   @default("manual") // "morning"|"manual"|"hourly"
+}
+
+model BankAccount {
+  id             String   @id // GoCardless account id
+  institution    String
+  currentBalance String   @default("0") // Decimal as string for SQLite
+  refreshedAt    DateTime
+}
+
+model BankTransaction {
+  id               String   @id // GoCardless txn id
+  accountId        String
+  postedAt         DateTime
+  amount           String   // Decimal as string
+  currency         String   @default("GBP")
+  merchant         String?
+  rawDescription   String
+  category         String?
+  categoryOverride String?
+}
+
+model NudgeEvent {
+  id           String    @id @default(cuid())
+  kind         String    // NudgeKind
+  scheduledFor DateTime
+  firedAt      DateTime?
+  acted        Int?      // 1=accepted, 0=skipped, null=ignored
+  createdAt    DateTime  @default(now())
+}
+
+model Speaker {
+  id       String @id @default(cuid())
+  alias    String // "Speaker 1"
+  realName String // "Mike Ellenthorpe"
+}
+
+model OauthToken {
+  id        String    @id
+  provider  String    // 'gmail'|'gcal'|'gocardless'
+  encrypted String    // AES-GCM base64 encoded
+  expiresAt DateTime?
+  updatedAt DateTime  @updatedAt
+}
+
+model QuoteSeen {
+  id      String   @id @default(cuid())
+  source  String   // 'office'|'simpsons'
+  hash    String
+  shownAt DateTime @default(now())
+}
+
+model CategoryOverride {
+  id          String   @id @default(cuid())
+  merchant    String
+  category    String
+  createdAt   DateTime @default(now())
+}
+
+model LaraContact {
+  id            String   @id @default(cuid())
+  lastContactAt DateTime
+  method        String   // 'button'|'calendar'|'gmail'
+  createdAt     DateTime @default(now())
+}
+
+model WellbeingConfig {
+  id    String @id @default(cuid())
+  key   String @unique // e.g. 'coffee_slot_1', 'gym_mon'
+  value String // JSON
+}
