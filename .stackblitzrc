@@ -1,6 +1,6 @@
 {
-  "installDependencies": true,
-  "startCommand": "node scripts/init-db.mjs && pnpm dev",
+  "installDependencies": false,
+  "startCommand": "pnpm install --no-frozen-lockfile && node scripts/init-db.mjs && pnpm dev",
   "env": {
     "DATABASE_URL": "file:./data/mother.db"
   }
